@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-form">
+    <h2>WebAuthn {% if action == 'register' %}Registration{% else %}Authentication{% endif %}</h2>
+    <div id="message">Please use your authenticator to continue...</div>
+    <button id="webauthn-btn" class="btn-primary">
+        {% if action == 'register' %}Register Security Key{% else %}Authenticate with Security Key{% endif %}
+    </button>
+    <div id="error" class="error" style="display: none;"></div>
+</div>
+
+<script>
+// Convert the Python WebAuthn options to JSON
+const options = {{ options | tojson }};
+
+document.getElementById('webauthn-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('webauthn-btn');
+    const message = document.getElementById('message');
+    const error = document.getElementById('error');
+    
+    try {
+        btn.disabled = true;
+        message.textContent = 'Waiting for authenticator...';
+        error.style.display = 'none';
+        
+        // Deep clone the options to avoid modifying the original
+        const webauthnOptions = JSON.parse(JSON.stringify(options));
+        
+        // Convert all base64 strings to ArrayBuffer
+        if (webauthnOptions.challenge) {
+            console.log('Decoding challenge:', webauthnOptions.challenge);  
+            webauthnOptions.challenge = base64ToArrayBuffer(webauthnOptions.challenge);
+        }
+        
+        if (webauthnOptions.user && webauthnOptions.user.id) {
+            console.log('Decoding user ID:', webauthnOptions.user.id);
+            webauthnOptions.user.id = base64ToArrayBuffer(webauthnOptions.user.id);
+        }
+        
+        if (webauthnOptions.allowCredentials) {
+            console.log('Decoding allowCredentials:', webauthnOptions.allowCredentials);
+            webauthnOptions.allowCredentials = webauthnOptions.allowCredentials.map(cred => ({
+                ...cred,
+                id: base64ToArrayBuffer(cred.id)
+            }));
+        }
+        
+        if (webauthnOptions.excludeCredentials) {
+            console.log('Decoding excludeCredentials:', webauthnOptions.excludeCredentials);
+            webauthnOptions.excludeCredentials = webauthnOptions.excludeCredentials.map(cred => ({
+                ...cred,
+                id: base64ToArrayBuffer(cred.id)
+            }));
+        }
+        
+        let credential;
+        if ('{{ action }}' === 'register') {
+            console.log('Registration options:', webauthnOptions);
+            credential = await navigator.credentials.create({
+                publicKey: webauthnOptions
+            });
+        } else {
+            console.log('Authentication options:', webauthnOptions);
+            credential = await navigator.credentials.get({
+                publicKey: webauthnOptions
+            });
+        }
+        
+        // Convert ArrayBuffer values to base64url for transmission
+        const response = {
+            id: credential.id,
+            rawId: arrayBufferToBase64(credential.rawId),
+            type: credential.type,
+            response: {}
+        };
+        
+        // Add all response fields
+        if (credential.response.clientDataJSON) {
+            console.log('clientDataJSON:', credential.response.clientDataJSON);
+            response.response.clientDataJSON = arrayBufferToBase64(credential.response.clientDataJSON);
+        }
+        if (credential.response.attestationObject) {
+            console.log('attestationObject:', credential.response.attestationObject);
+            response.response.attestationObject = arrayBufferToBase64(credential.response.attestationObject);
+        }
+        if (credential.response.authenticatorData) {
+            consoloe.log('authenticatorData:', credential.response.authenticatorData);
+            response.response.authenticatorData = arrayBufferToBase64(credential.response.authenticatorData);
+        }
+        if (credential.response.signature) {
+            console.log('signature:', credential.response.signature);
+            response.response.signature = arrayBufferToBase64(credential.response.signature);
+        }
+        if (credential.response.userHandle) {
+            console.log('userHandle:', credential.response.userHandle);
+            response.response.userHandle = arrayBufferToBase64(credential.response.userHandle);
+        }
+        if (credential.response.transports) {
+            console.log('transports:', credential.response.transports);
+            response.response.transports = credential.response.transports;
+        }
+        
+        console.log('Sending response to server:', response);
+
+
+        // Add client extension results
+        response.clientExtensionResults = credential.getClientExtensionResults ? credential.getClientExtensionResults() : {};
+        
+        // Send to server
+        const verifyUrl = '{{ url_for("webauthn_register_verify") if action == "register" else url_for("webauthn_authenticate_verify") }}';
+        console.log('Sending response to server:', response);
+        console.log('POST URL:', verifyUrl);
+
+        const result = await fetch(verifyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(response)
+        });
+        
+        const data = await result.json();
+        if (data.status === 'ok') {
+            message.textContent = 'Success! Redirecting...';
+            setTimeout(() => window.location.href = '{{ url_for("dashboard") }}', 1000);
+        } else {
+            throw new Error(data.error || 'Verification failed');
+        }
+        
+    } catch (err) {
+        console.error('WebAuthn error:', err);
+        
+        // Build comprehensive error message
+        const errorVars = {
+            'Error Type': err.name,
+            'Error Message': err.message,
+            'Action': '{{ action }}',
+            'Current URL': window.location.href,
+            'Browser Hostname': window.location.hostname,
+            'Browser Origin': window.location.origin,
+            'RP ID Expected': window.location.hostname,
+            'RP ID Received': typeof webauthnOptions !== 'undefined' ? 
+                            (webauthnOptions.rp?.id || 'undefined') : 
+                            (options?.rp?.id || 'undefined'),
+            'Challenge Present': typeof webauthnOptions !== 'undefined' ? 
+                                !!webauthnOptions.challenge : 
+                                !!options?.challenge,
+            'User Present': typeof webauthnOptions !== 'undefined' ? 
+                        !!webauthnOptions.user : 
+                        !!options?.user
+        };
+        
+        let errorDetails = 'WebAuthn Registration Failed\n\n';
+        errorDetails += 'Debug Information:\n';
+        errorDetails += '────────────────\n';
+        
+        for (const [key, value] of Object.entries(errorVars)) {
+            errorDetails += `${key}: ${value}\n`;
+        }
+        
+        errorDetails += '\nPlease check the browser console (F12) for technical details.';
+        
+        error.textContent = errorDetails;
+        error.style.display = 'block';
+        message.textContent = 'Registration failed. Please try again.';
+        
+        // Also log to console for debugging
+        console.error('Error context:', errorVars);
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// Utility function to convert base64 to ArrayBuffer
+function base64ToArrayBuffer(input) {
+    console.log('Decoding base64:', input);
+    input = input.replace(/-/g, '+').replace(/_/g, '/');
+  
+    // Add missing padding:
+    const pad = input.length % 4;
+    if (pad) {
+        input += '='.repeat(4 - pad);
+    }
+
+    var binaryString = atob(input);
+
+    var bytes = new Uint8Array(binaryString.length);
+    for (var i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
+// Utility function to convert ArrayBuffer to base64url
+function arrayBufferToBase64( buffer ) {
+    var binary = '';
+    var bytes = new Uint8Array( buffer );
+    var len = bytes.byteLength;
+    for (var i = 0; i < len; i++) {
+        binary += String.fromCharCode( bytes[ i ] );
+    }
+    return window.btoa( binary );
+}
+</script>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard">
+    <h2>Welcome, {{ username }}!</h2>
+    <div class="info-card">
+        <h3>Account Information</h3>
+        <p><strong>Username:</strong> {{ username }}</p>
+        <p><strong>Registered Security Keys:</strong> {{ credentials_count }}</p>
+    </div>
+    
+    <div class="actions">
+        <a href="{{ url_for('webauthn_register') }}" class="btn-primary">Add New Security Key</a>
+        <a href="{{ url_for('logout') }}" class="btn-secondary">Logout</a>
+    </div>
+</div>
+{% endblock %}
