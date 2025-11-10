@@ -1,11 +1,17 @@
 import React, { useState } from "react";
-import "../styles/index.css";
 import SignUpForm from "./SignUpForm";
 import SignInForm from "./SignInForm";
 import TogglePanel from "./TogglePanel";
+import { useLocation } from "react-router-dom";
+import { useEffect } from "react";
 
-const App: React.FC = () => {
+const AuthPage: React.FC = () => {
   const [active, setActive] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setActive(location.pathname === "/register");
+  }, [location.pathname]);
 
   return (
     <div className={`container ${active ? "active" : ""}`} id="container">
@@ -16,4 +22,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default AuthPage;
