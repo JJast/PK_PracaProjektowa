@@ -1,0 +1,31 @@
+.dashboard-container {
+  padding: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.dashboard-container h1 {
+  margin-bottom: 2rem;
+  color: #333;
+}
+
+.logout-button {
+  background-color: #ff4b2b;
+  color: white;
+  border: none;
+  padding: 12px 45px;
+  letter-spacing: 1px;
+  border-radius: 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 80ms ease-in;
+}
+
+.logout-button:hover {
+  background-color: #ff3b1b;
+}
+
+.logout-button:active {
+  transform: scale(0.95);
+}
