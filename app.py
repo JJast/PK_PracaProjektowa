@@ -5,8 +5,10 @@ import secrets
 import json
 import base64
 from datetime import datetime, timedelta
-import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
+
+from database import Database
+from utils import base64_to_base64url, webauthn_options_to_dict
 
 # WebAuthn dependencies
 from webauthn import (
@@ -36,87 +38,6 @@ CORS(app, supports_credentials=True, origins=[
     "http://localhost:3000",
     "http://localhost:5000",
 ])
-
-# Database setup
-class Database:
-    def __init__(self):
-        self.conn = sqlite3.connect('webauthn.db', check_same_thread=False)
-        self.create_tables()
-    
-    def create_tables(self):
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS credentials (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                credential_id TEXT UNIQUE NOT NULL,
-                public_key TEXT NOT NULL,
-                sign_count INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            )
-        ''')
-        self.conn.commit()
-    
-    def add_user(self, username, password_hash):
-        cursor = self.conn.cursor()
-        cursor.execute(
-            'INSERT INTO users (username, password_hash) VALUES (?, ?)',
-            (username, password_hash)
-        )
-        self.conn.commit()
-        return cursor.lastrowid
-    
-    def get_user(self, username):
-        cursor = self.conn.cursor()
-        cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
-        return cursor.fetchone()
-    
-    def get_user_by_id(self, user_id):
-        cursor = self.conn.cursor()
-        cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
-        return cursor.fetchone()
-    
-    def add_credential(self, user_id, credential_id, public_key):
-        cursor = self.conn.cursor()
-        cursor.execute(
-            'INSERT INTO credentials (user_id, credential_id, public_key) VALUES (?, ?, ?)',
-            (user_id, credential_id, public_key)
-        )
-        self.conn.commit()
-    
-    def get_credentials(self, user_id):
-        cursor = self.conn.cursor()
-        cursor.execute('SELECT * FROM credentials WHERE user_id = ?', (user_id,))
-        return cursor.fetchall()
-    
-    def get_credential(self, credential_id):
-        cursor = self.conn.cursor()
-        cursor.execute('SELECT * FROM credentials WHERE credential_id = ?', (credential_id,))
-        return cursor.fetchone()
-    
-    def update_sign_count(self, credential_id, sign_count):
-        cursor = self.conn.cursor()
-        cursor.execute(
-            'UPDATE credentials SET sign_count = ? WHERE credential_id = ?',
-            (sign_count, credential_id)
-        )
-        self.conn.commit()
-    
-    def clear_all_data(self):
-        """Clear all data from both tables"""
-        self.conn.execute('DELETE FROM credentials')
-        self.conn.execute('DELETE FROM users')
-        self.conn.commit()
-
 db = Database()
 
 # RP Configuration
@@ -139,85 +60,6 @@ def send_index():
         'error': 'Frontend build not found. Run `npm run build` in front-react and place output in front-react/dist'
     }), 500
 
-def webauthn_options_to_dict(options):
-    """Convert WebAuthn options to a JSON-serializable dictionary using base64url encoding"""
-    options_dict = {}
-    
-    # Convert basic fields
-    if hasattr(options, 'rp'):
-        options_dict['rp'] = {
-            'name': options.rp.name,
-            'id': options.rp.id,
-        }
-    
-    if hasattr(options, 'user'):
-        options_dict['user'] = {
-            'id': base64_to_base64url(options.user.id),
-            'name': options.user.name,
-            'displayName': options.user.display_name,
-        }
-    
-    if hasattr(options, 'challenge'):
-        options_dict['challenge'] = base64_to_base64url(options.challenge)
-    
-    if hasattr(options, 'pub_key_cred_params'):
-        options_dict['pubKeyCredParams'] = [
-            {
-                'type': param.type,
-                'alg': param.alg,
-            }
-            for param in options.pub_key_cred_params
-        ]
-    
-    if hasattr(options, 'timeout'):
-        options_dict['timeout'] = options.timeout
-    
-    if hasattr(options, 'exclude_credentials'):
-        options_dict['excludeCredentials'] = [
-            {
-                'type': cred.type,
-                'id': base64_to_base64url(cred.id),
-                'transports': getattr(cred, 'transports', []),
-            }
-            for cred in options.exclude_credentials
-        ]
-    
-    if hasattr(options, 'allow_credentials'):
-        options_dict['allowCredentials'] = [
-            {
-                'type': cred.type,
-                'id': base64_to_base64url(cred.id),
-                'transports': getattr(cred, 'transports', []),
-            }
-            for cred in options.allow_credentials
-        ]
-    
-    if hasattr(options, 'authenticator_selection'):
-        auth_selection = {}
-        if options.authenticator_selection.authenticator_attachment:
-            auth_selection['authenticatorAttachment'] = options.authenticator_selection.authenticator_attachment.value
-        if options.authenticator_selection.resident_key:
-            auth_selection['residentKey'] = options.authenticator_selection.resident_key.value
-        if options.authenticator_selection.user_verification:
-            auth_selection['userVerification'] = options.authenticator_selection.user_verification.value
-        if options.authenticator_selection.require_resident_key is not None:
-            auth_selection['requireResidentKey'] = options.authenticator_selection.require_resident_key
-        
-        options_dict['authenticatorSelection'] = auth_selection
-    
-    if hasattr(options, 'attestation'):
-        options_dict['attestation'] = options.attestation.value
-    
-    if hasattr(options, 'extensions'):
-        options_dict['extensions'] = options.extensions
-    
-    return options_dict
-
-def base64_to_base64url(data):
-    """Convert bytes to base64url string without padding"""
-    if isinstance(data, bytes):
-        return base64.urlsafe_b64encode(data).decode('utf-8').rstrip('=')
-    return data
 
 @app.before_request
 def make_session_permanent():
