@@ -18,12 +18,25 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleAddWebauthn = async () => {
+    console.log("Webauthn")
+  }
+
   return (
     <div className="dashboard-container">
       <h1>Hello, {username}!</h1>
-      <button onClick={handleLogout} className="logout-button">
-        Logout
-      </button>
+      <div>
+        <h2> Account management </h2>
+        <div className="account-container">
+          <h3> Two-factor authentication </h3>
+          <button onClick={handleAddWebauthn} className="primary-button">
+            Add 2FA
+          </button>
+          <button onClick={handleLogout} className="logout-button">
+            Logout
+            </button>
+          </div>
+      </div>
     </div>
   );
 };

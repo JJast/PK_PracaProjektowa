@@ -10,6 +10,33 @@
   color: #333;
 }
 
+.primary-button { 
+  background-color: #2da0a8;
+  color: white;
+  border: none;
+  padding: 12px 45px;
+  letter-spacing: 1px;
+  border-radius: 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 80ms ease-in;
+} 
+
+.account-container {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 1.2rem;
+  padding: 2.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  align-items: center;
+  margin: 0.8rem;
+}
+
+.primary-button:hover {
+  background-color: #2b99a1;
+}
+
 .logout-button {
   background-color: #ff4b2b;
   color: white;
