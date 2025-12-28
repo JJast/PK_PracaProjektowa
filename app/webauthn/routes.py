@@ -1,14 +1,7 @@
-from flask import Flask, request, jsonify, session, redirect, url_for, send_from_directory
-from flask_cors import CORS
-import os
-import secrets
-import json
-import base64
-from datetime import datetime, timedelta
-from werkzeug.security import generate_password_hash, check_password_hash
+from utils import base64_to_base64url, webauthn_options_to_dict
+from flask import Blueprint, request, jsonify, session
 
 from database import Database
-from utils import base64_to_base64url, webauthn_options_to_dict
 
 # WebAuthn dependencies
 from webauthn import (
@@ -19,6 +12,9 @@ from webauthn import (
     verify_authentication_response,
     base64url_to_bytes,
 )
+
+import base64
+
 from webauthn.helpers.cose import COSEAlgorithmIdentifier
 from webauthn.helpers.structs import (
     AttestationConveyancePreference,
@@ -29,15 +25,7 @@ from webauthn.helpers.structs import (
     ResidentKeyRequirement,
 )
 
-app = Flask(__name__, static_folder=None)
-app.config['SECRET_KEY'] = 'your-secret-key-here-change-this-in-production'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
-# Enable CORS for common dev origins so React dev server can call the API with credentials
-CORS(app, supports_credentials=True, origins=[
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://localhost:5000",
-])
+webauthn_bp = Blueprint("webauthn", __name__)
 db = Database()
 
 # RP Configuration
@@ -45,81 +33,7 @@ RP_ID = "localhost"
 RP_NAME = "WebAuthn Demo App"
 ORIGIN = "http://localhost:5000"
 
-# Frontend build directory (Vite default = dist)
-BASE_DIR = os.path.dirname(__file__)
-FRONTEND_BUILD_DIR = os.path.join(BASE_DIR, 'front-react', 'dist')
-
-def send_index():
-    """Send the SPA index.html from the React build directory.
-    If the build isn't present return a helpful JSON error for dev.
-    """
-    index_path = os.path.join(FRONTEND_BUILD_DIR, 'index.html')
-    if os.path.exists(index_path):
-        return send_from_directory(FRONTEND_BUILD_DIR, 'index.html')
-    return jsonify({
-        'error': 'Frontend build not found. Run `npm run build` in front-react and place output in front-react/dist'
-    }), 500
-
-
-@app.before_request
-def make_session_permanent():
-    session.permanent = True
-    app.permanent_session_lifetime = timedelta(minutes=30)
-
-@app.route('/')
-def index():
-    # Serve the SPA. The React app is expected to handle routes like /login, /register, /dashboard
-    return send_index()
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        data = request.get_json() or request.form
-        username = data.get('username')
-        password = data.get('password')
-
-        if db.get_user(username):
-            return jsonify({'error': 'Username already exists'}), 400
-
-        password_hash = generate_password_hash(password)
-        user_id = db.add_user(username, password_hash)
-
-        session['user_id'] = user_id
-        session['username'] = username
-        session['registering'] = True
-
-        # Client should call the webauthn registration options endpoint next
-        return jsonify({'status': 'ok', 'next': '/webauthn/register'})
-
-    # GET -> serve SPA
-    return send_index()
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        data = request.get_json() or request.form
-        username = data.get('username')
-        password = data.get('password')
-
-        user = db.get_user(username)
-        if user and check_password_hash(user[2], password):
-            session['user_id'] = user[0]
-            session['username'] = username
-            session['authenticating'] = True
-
-            credentials = db.get_credentials(user[0])
-            if credentials:
-                return jsonify({'status': 'ok', 'webauthn': True, 'next': '/webauthn/authenticate'})
-            else:
-                session['authenticated'] = True
-                return jsonify({'status': 'ok', 'webauthn': False, 'next': '/dashboard'})
-
-        return jsonify({'error': 'Invalid credentials'}), 400
-
-    # GET -> serve SPA
-    return send_index()
-
-@app.route('/webauthn/register')
+@webauthn_bp.route('/register')
 def webauthn_register():
     if 'user_id' not in session or not session.get('registering'):
         return jsonify({'error': 'Not registering or session expired'}), 403
@@ -164,7 +78,7 @@ def webauthn_register():
 
     return jsonify({'options': options_dict, 'action': 'register'})
 
-@app.route('/webauthn/register/verify', methods=['POST'])
+@webauthn_bp.route('/register/verify', methods=['POST'])
 def webauthn_register_verify():
     if 'user_id' not in session or 'challenge' not in session:
         return jsonify({'error': 'Session expired'}), 400
@@ -203,7 +117,7 @@ def webauthn_register_verify():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@app.route('/webauthn/authenticate')
+@webauthn_bp.route('/authenticate')
 def webauthn_authenticate():
     if 'user_id' not in session or not session.get('authenticating'):
         return jsonify({'error': 'Not authenticating or session expired'}), 403
@@ -230,7 +144,7 @@ def webauthn_authenticate():
 
     return jsonify({'options': options_dict, 'action': 'authenticate'})
 
-@app.route('/webauthn/authenticate/verify', methods=['POST'])
+@webauthn_bp.route('/authenticate/verify', methods=['POST'])
 def webauthn_authenticate_verify():
     if 'user_id' not in session or 'challenge' not in session:
         return jsonify({'error': 'Session expired'}), 400
@@ -268,56 +182,3 @@ def webauthn_authenticate_verify():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 400
-
-@app.route('/dashboard')
-def dashboard():
-    if 'user_id' not in session or not session.get('authenticated'):
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    user = db.get_user_by_id(session['user_id'])
-    credentials = db.get_credentials(session['user_id'])
-
-    return jsonify({
-        'username': session.get('username'),
-        'credentials_count': len(credentials)
-    })
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return jsonify({'status': 'ok'})
-
-# Admin routes for development
-@app.route('/admin/clear-db')
-def clear_db():
-    """Dangerous: Clears all data - only for development!"""
-    if not app.debug:
-        return "This route is only available in debug mode", 403
-    
-    db.clear_all_data()
-    session.clear()
-    return jsonify({'status': 'db_cleared'})
-
-@app.route('/admin/db-status')
-def db_status():
-    """Show current database status"""
-    users_count = db.conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
-    credentials_count = db.conn.execute('SELECT COUNT(*) FROM credentials').fetchone()[0]
-    
-    return jsonify({
-        'users_count': users_count,
-        'credentials_count': credentials_count,
-        'database_file': 'webauthn.db'
-    })
-
-
-# Serve static files and fallback to index for SPA routes
-@app.route('/<path:filename>')
-def serve_static(filename):
-    file_path = os.path.join(FRONTEND_BUILD_DIR, filename)
-    if os.path.exists(file_path):
-        return send_from_directory(FRONTEND_BUILD_DIR, filename)
-    return send_index()
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
