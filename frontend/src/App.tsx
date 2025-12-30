@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import AuthPage from "./components/AuthPage";
 import Dashboard from "./components/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { RegisterKeyPage } from "./components/RegisterKeyPage";
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<AuthPage />} />
           <Route path="/register" element={<AuthPage />} />
+          <Route path="/register-key" element={<RegisterKeyPage />} />
           <Route
             path="/dashboard"
             element={
