@@ -4,8 +4,8 @@ import os
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app.webauthn.routes import webauthn_bp
-from app.admin.routes import admin_bp
+from server.webauthn.routes import webauthn_bp
+from server.admin.routes import admin_bp
 
 from database import Database
 
@@ -17,6 +17,9 @@ CORS(app, supports_credentials=True, origins=[
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:5000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5000",
 ])
 db = Database()
 

@@ -35,7 +35,8 @@ ORIGIN = "http://localhost:5000"
 
 @webauthn_bp.route('/register')
 def webauthn_register():
-    if 'user_id' not in session or not session.get('registering'):
+    # if 'user_id' not in session or not session.get('registering'):
+    if 'user_id' not in session:
         return jsonify({'error': 'Not registering or session expired'}), 403
 
     user_id = session['user_id']
