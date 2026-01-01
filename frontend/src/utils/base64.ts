@@ -1,8 +1,8 @@
-import type { WebauthnRegisterOptions } from "../types/webauthn";
+import type { EncodedAuthenticatorAttestationResponse, EncodedAuthenticatorAssertionResponse, WebauthnCredential, WebauthnRegisterOptions } from "../types/webauthn";
 
 // Utility function to convert base64 to ArrayBuffer
 export function base64ToArrayBuffer(input: string): ArrayBuffer {
-    console.log('Decoding base64:', input);
+    // console.log('Decoding base64:', input);
     input = input.replace(/-/g, '+').replace(/_/g, '/');
 
     // Add missing padding:
@@ -31,20 +31,24 @@ export function arrayBufferToBase64(buffer: ArrayBuffer) {
     return window.btoa(binary);
 }
 
-export function convertWebauthnOptions(webauthnOptions_: WebauthnRegisterOptions) {
-    const webauthnOptions = JSON.parse(JSON.stringify(webauthnOptions_));
+export function decodeWebauthnOptions(webauthnOptions: WebauthnRegisterOptions): PublicKeyCredentialCreationOptions {
+    let challenge = null;
+    let user: PublicKeyCredentialUserEntity | null = null;
+    let excludeCredentials: PublicKeyCredentialDescriptor[] = [];
 
-    return webauthnOptions;
-    // if (webauthnOptions.challenge) {
-    //     console.log('Decoding challenge:', webauthnOptions.challenge);
-    //     webauthnOptions.challenge = base64ToArrayBuffer(webauthnOptions.challenge);
-    // }
+    if (webauthnOptions.challenge) {
+        challenge = base64ToArrayBuffer(webauthnOptions.challenge);
+    } else {
+        throw new Error("Missing key: 'challenge'");
+    }
 
-    // if (webauthnOptions.user && webauthnOptions.user.id) {
-    //     console.log('Decoding user ID:', webauthnOptions.user.id);
-    //     webauthnOptions.user.id = base64ToArrayBuffer(webauthnOptions.user.id);
-    // }
+    if (webauthnOptions.user && webauthnOptions.user.id) {
+        user = { ...webauthnOptions.user, id: base64ToArrayBuffer(webauthnOptions.user.id), };
+    } else {
+        throw new Error("Invalid value for key 'user'.");
+    }
 
+    // FIXME?
     // if (webauthnOptions.allowCredentials) {
     //     console.log('Decoding allowCredentials:', webauthnOptions.allowCredentials);
     //     webauthnOptions.allowCredentials = webauthnOptions.allowCredentials.map(cred => ({
@@ -53,11 +57,61 @@ export function convertWebauthnOptions(webauthnOptions_: WebauthnRegisterOptions
     //     }));
     // }
 
-    // if (webauthnOptions.excludeCredentials) {
-    //     console.log('Decoding excludeCredentials:', webauthnOptions.excludeCredentials);
-    //     webauthnOptions.excludeCredentials = webauthnOptions.excludeCredentials.map(cred => ({
-    //         ...cred,
-    //         id: base64ToArrayBuffer(cred.id)
-    //     }));
-    // }
+    if (webauthnOptions.excludeCredentials) {
+        excludeCredentials = webauthnOptions.excludeCredentials.map(cred => {
+            const converted = {
+                ...cred,
+                id: base64ToArrayBuffer(cred.id)
+            }
+
+            return converted;
+        });
+    }
+
+    return { ...webauthnOptions, ...{ challenge }, ...{ user }, excludeCredentials };
+}
+
+export function encodeCredential(credential: PublicKeyCredential): WebauthnCredential {
+    const credentialBase: Pick<WebauthnCredential, "id" | "rawId" | "type" | "authenticatorAttachment"> = {
+        id: credential.id,
+        rawId: arrayBufferToBase64(credential.rawId),
+        type: credential.type,
+        authenticatorAttachment: credential.authenticatorAttachment
+    };
+
+    // type of response returned by CredentialsContainer.create()
+    if (credential.response instanceof AuthenticatorAttestationResponse) {
+        const clientDataJSON = arrayBufferToBase64(credential.response.clientDataJSON);
+        const attestationObject = arrayBufferToBase64(credential.response.attestationObject);
+
+        const transports = credential.response.getTransports();
+
+        const response: EncodedAuthenticatorAttestationResponse = { clientDataJSON, attestationObject, transports };
+
+        return { ...credentialBase, response };
+
+        // type of response returned by CredentialsContainer.get()
+    } else if (credential.response instanceof AuthenticatorAssertionResponse) {
+
+        const clientDataJSON = arrayBufferToBase64(credential.response.clientDataJSON);
+        const authenticatorData = arrayBufferToBase64(credential.response.authenticatorData);
+        const signature = arrayBufferToBase64(credential.response.signature);
+
+        let userHandle: string | null = null;
+        if (credential.response.userHandle) {
+            userHandle = arrayBufferToBase64(credential.response.userHandle);
+        }
+
+        const response: EncodedAuthenticatorAssertionResponse = {
+            clientDataJSON,
+            authenticatorData,
+            signature,
+            //add key if 
+            userHandle: userHandle ? userHandle : undefined
+        };
+
+        return { ...credentialBase, response };
+    }
+
+    throw new Error("Invalid type of credential.response field.");
 }

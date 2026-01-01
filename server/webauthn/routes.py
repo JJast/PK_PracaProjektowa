@@ -1,6 +1,7 @@
 from utils import base64_to_base64url, webauthn_options_to_dict
 from flask import Blueprint, request, jsonify, session
 
+
 from database import Database
 
 # WebAuthn dependencies
@@ -31,7 +32,10 @@ db = Database()
 # RP Configuration
 RP_ID = "localhost"
 RP_NAME = "WebAuthn Demo App"
-ORIGIN = "http://localhost:5000"
+ORIGINS = [
+    "http://localhost:5000",
+    "http://localhost:5173" # Vite dev server
+]
 
 @webauthn_bp.route('/register')
 def webauthn_register():
@@ -88,18 +92,14 @@ def webauthn_register_verify():
 
     try:
         credential_data = request.json
-        
-        print(f"Verifying registration response with challenge: {session['challenge']}")
 
         verification = verify_registration_response(
             credential=credential_data,
             expected_challenge=session['challenge'],
-            expected_origin=ORIGIN,
+            expected_origin=ORIGINS,
             expected_rp_id=RP_ID,
             require_user_verification=False,
         )
-
-        print(verification)
         
         # Store the credential using base64url encoding
         credential_id = base64.urlsafe_b64encode(verification.credential_id).decode('utf-8').rstrip('=')
@@ -165,7 +165,7 @@ def webauthn_authenticate_verify():
             credential=credential_data,
             expected_challenge=session['challenge'],
             expected_rp_id=RP_ID,
-            expected_origin=ORIGIN,
+            expected_origin=ORIGINS,
             credential_public_key=base64url_to_bytes(stored_credential[3]),
             credential_current_sign_count=stored_credential[4],
             require_user_verification=False,
