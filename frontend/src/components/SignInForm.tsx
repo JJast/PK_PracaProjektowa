@@ -5,6 +5,7 @@ import { API_BASE_URL } from "../utils/constants";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { base64urlToArrayBuffer } from "../utils/base64";
 
 const SignInForm: React.FC = () => {
   const navigate = useNavigate();
@@ -19,22 +20,25 @@ const SignInForm: React.FC = () => {
       const assertion = await navigator.credentials.get({
         publicKey: {
           ...options.options,
-          challenge: Uint8Array.from(atob(options.options.challenge), (c) =>
-            c.charCodeAt(0)
-          ),
+          challenge: base64urlToArrayBuffer(options.options.challenge),
           allowCredentials: options.options.allowCredentials.map(
-            (cred: any) => ({
-              ...cred,
-              id: Uint8Array.from(atob(cred.id), (c) => c.charCodeAt(0)),
-            })
+            (cred: any) => {
+              let { transports, ...credRest } = cred;
+              console.log("ALLOW: ", (!!transports ? { transports } : null));
+              return {
+                ...credRest,
+                id: base64urlToArrayBuffer(cred.id),
+                transports: []
+              }
+            }
           ),
+          // rpId: "localhost"
         },
       });
 
       if (!assertion) {
         throw new Error("WebAuthn authentication failed");
       }
-
       // Convert assertion to JSON for sending to server
       const authData = assertion as any;
       const response = authData.response;
@@ -74,11 +78,11 @@ const SignInForm: React.FC = () => {
                 .replace(/=/g, ""),
               userHandle: response.userHandle
                 ? btoa(
-                    String.fromCharCode(...new Uint8Array(response.userHandle))
-                  )
-                    .replace(/\+/g, "-")
-                    .replace(/\//g, "_")
-                    .replace(/=/g, "")
+                  String.fromCharCode(...new Uint8Array(response.userHandle))
+                )
+                  .replace(/\+/g, "-")
+                  .replace(/\//g, "_")
+                  .replace(/=/g, "")
                 : null,
             },
             type: authData.type,
@@ -127,6 +131,7 @@ const SignInForm: React.FC = () => {
         const opts = await optsRes.json();
 
         // Start WebAuthn authentication
+
         await startWebAuthnAuthentication(opts);
       } else {
         toast.success("Login successful!");

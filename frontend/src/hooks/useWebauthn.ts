@@ -17,7 +17,6 @@ export default function useWebAuthn() {
 
     const createCredentials = async (options: WebauthnRegisterOptions): Promise<WebauthnCredential> => {
         const options_ = decodeWebauthnOptions(options);
-
         const credential = await navigator.credentials.create({ publicKey: options_ })
 
         if (!credential) {

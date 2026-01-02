@@ -1,8 +1,7 @@
 import type { EncodedAuthenticatorAttestationResponse, EncodedAuthenticatorAssertionResponse, WebauthnCredential, WebauthnRegisterOptions } from "../types/webauthn";
 
 // Utility function to convert base64 to ArrayBuffer
-export function base64ToArrayBuffer(input: string): ArrayBuffer {
-    // console.log('Decoding base64:', input);
+export function base64urlToArrayBuffer(input: string): ArrayBuffer {
     input = input.replace(/-/g, '+').replace(/_/g, '/');
 
     // Add missing padding:
@@ -21,14 +20,17 @@ export function base64ToArrayBuffer(input: string): ArrayBuffer {
 }
 
 // Utility function to convert ArrayBuffer to base64url
-export function arrayBufferToBase64(buffer: ArrayBuffer) {
+export function arrayBufferToBase64url(buffer: ArrayBuffer) {
     var binary = '';
     var bytes = new Uint8Array(buffer);
     var len = bytes.byteLength;
     for (var i = 0; i < len; i++) {
         binary += String.fromCharCode(bytes[i]);
     }
-    return window.btoa(binary);
+    return window.btoa(binary)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');  // Remove padding;
 }
 
 export function decodeWebauthnOptions(webauthnOptions: WebauthnRegisterOptions): PublicKeyCredentialCreationOptions {
@@ -37,13 +39,14 @@ export function decodeWebauthnOptions(webauthnOptions: WebauthnRegisterOptions):
     let excludeCredentials: PublicKeyCredentialDescriptor[] = [];
 
     if (webauthnOptions.challenge) {
-        challenge = base64ToArrayBuffer(webauthnOptions.challenge);
+        challenge = base64urlToArrayBuffer(webauthnOptions.challenge);
+        console.log("decoded challenge:", challenge);
     } else {
         throw new Error("Missing key: 'challenge'");
     }
 
     if (webauthnOptions.user && webauthnOptions.user.id) {
-        user = { ...webauthnOptions.user, id: base64ToArrayBuffer(webauthnOptions.user.id), };
+        user = { ...webauthnOptions.user, id: base64urlToArrayBuffer(webauthnOptions.user.id), };
     } else {
         throw new Error("Invalid value for key 'user'.");
     }
@@ -58,10 +61,14 @@ export function decodeWebauthnOptions(webauthnOptions: WebauthnRegisterOptions):
     // }
 
     if (webauthnOptions.excludeCredentials) {
+
         excludeCredentials = webauthnOptions.excludeCredentials.map(cred => {
+            const { transports, ...rest } = cred;
+
             const converted = {
-                ...cred,
-                id: base64ToArrayBuffer(cred.id)
+                ...rest,
+                id: base64urlToArrayBuffer(cred.id),
+                ...(!!transports ? { transports } : null)
             }
 
             return converted;
@@ -74,15 +81,15 @@ export function decodeWebauthnOptions(webauthnOptions: WebauthnRegisterOptions):
 export function encodeCredential(credential: PublicKeyCredential): WebauthnCredential {
     const credentialBase: Pick<WebauthnCredential, "id" | "rawId" | "type" | "authenticatorAttachment"> = {
         id: credential.id,
-        rawId: arrayBufferToBase64(credential.rawId),
+        rawId: arrayBufferToBase64url(credential.rawId),
         type: credential.type,
         authenticatorAttachment: credential.authenticatorAttachment
     };
 
     // type of response returned by CredentialsContainer.create()
     if (credential.response instanceof AuthenticatorAttestationResponse) {
-        const clientDataJSON = arrayBufferToBase64(credential.response.clientDataJSON);
-        const attestationObject = arrayBufferToBase64(credential.response.attestationObject);
+        const clientDataJSON = arrayBufferToBase64url(credential.response.clientDataJSON);
+        const attestationObject = arrayBufferToBase64url(credential.response.attestationObject);
 
         const transports = credential.response.getTransports();
 
@@ -93,13 +100,13 @@ export function encodeCredential(credential: PublicKeyCredential): WebauthnCrede
         // type of response returned by CredentialsContainer.get()
     } else if (credential.response instanceof AuthenticatorAssertionResponse) {
 
-        const clientDataJSON = arrayBufferToBase64(credential.response.clientDataJSON);
-        const authenticatorData = arrayBufferToBase64(credential.response.authenticatorData);
-        const signature = arrayBufferToBase64(credential.response.signature);
+        const clientDataJSON = arrayBufferToBase64url(credential.response.clientDataJSON);
+        const authenticatorData = arrayBufferToBase64url(credential.response.authenticatorData);
+        const signature = arrayBufferToBase64url(credential.response.signature);
 
         let userHandle: string | null = null;
         if (credential.response.userHandle) {
-            userHandle = arrayBufferToBase64(credential.response.userHandle);
+            userHandle = arrayBufferToBase64url(credential.response.userHandle);
         }
 
         const response: EncodedAuthenticatorAssertionResponse = {

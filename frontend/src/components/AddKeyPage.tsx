@@ -1,15 +1,18 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import "../styles/index.css";
 import "../styles/register-key.css";
 import useWebAuthn from "../hooks/useWebauthn";
 import type { WebauthnRegisterOptions } from "../types/webauthn";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export const AddKeyPage: React.FC = () => {
     const [keyName, setKeyName] = useState("");
     const [options, setOptions] = useState<WebauthnRegisterOptions | null>(null);
     const { getOptions, createCredentials, verifyCredentials } = useWebAuthn();
     const navigate = useNavigate();
+
+    //workaround for useEffect performing a request twice when React.StrictMode is enabled
+    let hasFetchedOptions = useRef(false);
 
     const handleKeyNameChange = (e: React.SyntheticEvent) => {
         const target = e.target as HTMLInputElement;
@@ -18,8 +21,6 @@ export const AddKeyPage: React.FC = () => {
 
     const handleAddClick = async () => {
         if (keyName.length > 0 && options != null) {
-            // console.log(options);
-
             const credential = await createCredentials(options);
             const response = await verifyCredentials(credential, "register");
 
@@ -32,9 +33,9 @@ export const AddKeyPage: React.FC = () => {
     }
 
     useEffect(() => {
-        if (!options) {
+        if (!hasFetchedOptions.current) {
+            hasFetchedOptions.current = true;
             getOptions().then(options => {
-                console.log(options)
                 setOptions(options);
             });
         }
@@ -54,6 +55,7 @@ export const AddKeyPage: React.FC = () => {
             </div>
 
             <button onClick={handleAddClick}> Add </button>
+            <Link to={"/dashboard"}> &lt; Return to dashboard </Link>
         </div>
     )
 }
