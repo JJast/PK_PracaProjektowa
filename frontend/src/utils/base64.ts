@@ -40,7 +40,6 @@ export function decodeWebauthnOptions(webauthnOptions: WebauthnRegisterOptions):
 
     if (webauthnOptions.challenge) {
         challenge = base64urlToArrayBuffer(webauthnOptions.challenge);
-        console.log("decoded challenge:", challenge);
     } else {
         throw new Error("Missing key: 'challenge'");
     }

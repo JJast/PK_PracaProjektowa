@@ -22,6 +22,7 @@ class Database:
                 user_id INTEGER NOT NULL,
                 credential_id TEXT UNIQUE NOT NULL,
                 public_key TEXT NOT NULL,
+                key_label TEXT NOT NULL,
                 sign_count INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users (id)
@@ -48,11 +49,11 @@ class Database:
         cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
         return cursor.fetchone()
     
-    def add_credential(self, user_id, credential_id, public_key):
+    def add_credential(self, user_id, credential_id, public_key, label: str):
         cursor = self.conn.cursor()
         cursor.execute(
-            'INSERT INTO credentials (user_id, credential_id, public_key) VALUES (?, ?, ?)',
-            (user_id, credential_id, public_key)
+            'INSERT INTO credentials (user_id, credential_id, public_key, key_label) VALUES (?, ?, ?, ?)',
+            (user_id, credential_id, public_key, label)
         )
         self.conn.commit()
     

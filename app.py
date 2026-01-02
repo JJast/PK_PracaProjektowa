@@ -66,7 +66,8 @@ def register():
         session['registering'] = True
 
         # Client should call the webauthn registration options endpoint next
-        return jsonify({'status': 'ok', 'next': '/webauthn/register'})
+        # return jsonify({'status': 'ok', 'next': '/webauthn/register'})
+        return jsonify({'status': 'ok'})
 
     # GET -> serve SPA
     return send_index()
@@ -96,7 +97,7 @@ def login():
     # GET -> serve SPA
     return send_index()
 
-@app.route('/dashboard')
+@app.route('/credentials')
 def dashboard():
     if 'user_id' not in session or not session.get('authenticated'):
         return jsonify({'error': 'Not authenticated'}), 401
@@ -104,9 +105,16 @@ def dashboard():
     user = db.get_user_by_id(session['user_id'])
     credentials = db.get_credentials(session['user_id'])
 
+    credentials_view = [{
+            "id": credential[2],
+            "key_label": credential[4],
+            "created_at": credential[6],
+        } for credential in credentials
+    ]
+
     return jsonify({
         'username': session.get('username'),
-        'credentials_count': len(credentials)
+        'credentials': credentials_view
     })
 
 @app.route('/logout')

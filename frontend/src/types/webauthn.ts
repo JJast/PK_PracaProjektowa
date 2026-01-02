@@ -46,3 +46,14 @@ export type WebauthnCredential = Omit<
     response: (EncodedAuthenticatorAssertionResponse | EncodedAuthenticatorAttestationResponse)
     type: string;
 }
+
+export type AuthCredentialResponse = {
+    credentials: AuthCredential[];
+    username: string;
+}
+
+export type AuthCredential = {
+    id: number;
+    keyLabel: string;
+    createdAt: string;
+};

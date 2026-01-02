@@ -4,8 +4,8 @@ def base64_to_base64url(data):
     """Convert bytes to base64url string without padding"""
     if isinstance(data, bytes):
         return base64.urlsafe_b64encode(data).decode('utf-8').rstrip('=')
+    # return data.replace("+", "-").replace("/", "_")
     return data
-
 
 
 def webauthn_options_to_dict(options):

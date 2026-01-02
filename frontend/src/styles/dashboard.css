@@ -10,7 +10,7 @@
   color: #333;
 }
 
-.primary-button { 
+.primary-button {
   background-color: #2da0a8;
   color: white;
   border: none;
@@ -20,7 +20,7 @@
   font-size: 1rem;
   cursor: pointer;
   transition: transform 80ms ease-in;
-} 
+}
 
 .account-container {
   border: 1px solid rgba(0, 0, 0, 0.2);
@@ -55,4 +55,21 @@
 
 .logout-button:active {
   transform: scale(0.95);
+}
+
+.credential-container {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.credential-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.credential-btn {
+  align-self: center;
 }

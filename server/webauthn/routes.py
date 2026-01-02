@@ -71,11 +71,16 @@ def webauthn_register():
             COSEAlgorithmIdentifier.ECDSA_SHA_256,
             COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_256,
         ],
-        timeout=60000,
+        timeout=120000,
     )
 
     # Store challenge in session as bytes
     session['challenge'] = registration_options.challenge
+    # session['challenge'] = base64.urlsafe_b64encode(
+    #     registration_options.challenge
+    # ).decode('utf-8').rstrip('=')
+
+    print("WEBAUTHN REGISTER CHALLENGE:", session['challenge'])
     session['user_handle'] = registration_options.user.id
 
     # Convert options to JSON-serializable dict
@@ -93,6 +98,10 @@ def webauthn_register_verify():
     try:
         credential_data = request.json
 
+        print("WEBAUTHN REGISTER VERIFICATION CHALLENGE:", session['challenge'])
+        # print("RECEIVED DATA:", credential_data)
+
+        # expected_challenge = base64url_to_bytes(session['challenge'])
         verification = verify_registration_response(
             credential=credential_data,
             expected_challenge=session['challenge'],
@@ -105,7 +114,7 @@ def webauthn_register_verify():
         credential_id = base64.urlsafe_b64encode(verification.credential_id).decode('utf-8').rstrip('=')
         public_key = base64.urlsafe_b64encode(verification.credential_public_key).decode('utf-8').rstrip('=')
         
-        db.add_credential(session['user_id'], credential_id, public_key)
+        db.add_credential(session['user_id'], credential_id, public_key, credential_data["label"])
         
         # Clean up session
         session.pop('challenge', None)
@@ -135,7 +144,7 @@ def webauthn_authenticate():
         rp_id=RP_ID,
         allow_credentials=allow_credentials,
         user_verification=UserVerificationRequirement.PREFERRED,
-        timeout=60000,
+        timeout=180000,
     )
 
     session['challenge'] = authentication_options.challenge
@@ -167,7 +176,7 @@ def webauthn_authenticate_verify():
             expected_rp_id=RP_ID,
             expected_origin=ORIGINS,
             credential_public_key=base64url_to_bytes(stored_credential[3]),
-            credential_current_sign_count=stored_credential[4],
+            credential_current_sign_count=stored_credential[5],
             require_user_verification=False,
         )
         
@@ -182,4 +191,6 @@ def webauthn_authenticate_verify():
         return jsonify({'status': 'ok'})
     
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 400

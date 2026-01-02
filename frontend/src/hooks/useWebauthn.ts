@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { WebauthnCredential, WebauthnRegisterOptions } from "../types/webauthn"
+import type { AuthCredential, AuthCredentialResponse, WebauthnCredential, WebauthnRegisterOptions } from "../types/webauthn"
 import { decodeWebauthnOptions, encodeCredential } from "../utils/base64"
 import { API_BASE_URL } from "../utils/constants"
 
@@ -33,20 +33,45 @@ export default function useWebAuthn() {
 
     const verifyCredentials = async (
         credential: WebauthnCredential,
-        action: "register" | "authenticate" = "authenticate"
+        action: "register" | "authenticate",
+        label: string = ""
     ) => {
+        const body: WebauthnCredential & { label?: string } = credential;
+        if (action === "register") {
+            body.label = label
+        }
+
         const endpointUrl = `${API_BASE_URL}/webauthn/${action}/verify`;
         const res = await fetch(endpointUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(credential),
+            body: JSON.stringify(body),
             credentials: "include"
         });
 
         return await res.json();
     }
 
-    const getCredentials = () => { }
+    const getCredentials = async (): Promise<AuthCredentialResponse> => {
+        const res = await fetch(`${API_BASE_URL}/credentials`, {
+            credentials: "include",
+        });
+
+        const data = await res.json();
+
+        if (!data || !data.credentials || !data.username) {
+            throw new Error(`Received malformed data: ${JSON.stringify(data)}`);
+        }
+
+        data.credentials = data.credentials.map((cred: any): AuthCredential => {
+            const { created_at: createdAt, id, key_label: keyLabel } = cred;
+            return {
+                createdAt, id, keyLabel
+            }
+        })
+
+        return data;
+    }
 
     return { getOptions, createCredentials, getCredentials, verifyCredentials, error, setError };
 }

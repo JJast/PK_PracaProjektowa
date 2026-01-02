@@ -23,8 +23,7 @@ const SignInForm: React.FC = () => {
           challenge: base64urlToArrayBuffer(options.options.challenge),
           allowCredentials: options.options.allowCredentials.map(
             (cred: any) => {
-              let { transports, ...credRest } = cred;
-              console.log("ALLOW: ", (!!transports ? { transports } : null));
+              let { _transports, ...credRest } = cred;
               return {
                 ...credRest,
                 id: base64urlToArrayBuffer(cred.id),
