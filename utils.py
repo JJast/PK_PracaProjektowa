@@ -1,4 +1,5 @@
 import base64
+import secrets
 
 def base64_to_base64url(data):
     """Convert bytes to base64url string without padding"""
@@ -81,3 +82,6 @@ def webauthn_options_to_dict(options):
         options_dict['extensions'] = options.extensions
     
     return options_dict
+
+def generate_recovery_code():
+    return ''.join(str(secrets.randbelow(10)) for _ in range(6))

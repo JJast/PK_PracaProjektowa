@@ -3,14 +3,14 @@ import "../styles/index.css";
 import "../styles/register-key.css";
 import useWebAuthn from "../hooks/useWebauthn";
 import type { WebauthnRegisterOptions } from "../types/webauthn";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
 export const AddKeyPage: React.FC = () => {
     const [keyName, setKeyName] = useState("");
     const [options, setOptions] = useState<WebauthnRegisterOptions | null>(null);
+    const [recoveryCode, setRecoveryCode] = useState<string>("");
     const { getOptions, createCredentials, verifyCredentials } = useWebAuthn();
-    const navigate = useNavigate();
 
     const [buttonDisabled, setButtonDisabled] = useState(false);
 
@@ -25,15 +25,15 @@ export const AddKeyPage: React.FC = () => {
     const handleAddClick = async () => {
         if (keyName.length > 0 && options != null) {
             try {
+                setButtonDisabled(true);
                 const credential = await createCredentials(options);
                 const response = await verifyCredentials(credential, "register", keyName);
 
                 if (response.status === "ok") {
                     toast.success("Successfully registered a key!");
-                    setButtonDisabled(true);
-                    setTimeout(() => {
-                        navigate("/dashboard");
-                    }, 500)
+                    setRecoveryCode(response["recovery_code"])
+                    setKeyName("");
+                    setButtonDisabled(false);
                 } else {
                     throw new Error(`Failed to register the key!`);
                 }
@@ -66,8 +66,15 @@ export const AddKeyPage: React.FC = () => {
                     placeholder='e.g. "Iphone SE", "My YubiKey"...'
                 />
             </div>
-
             <button onClick={handleAddClick} disabled={buttonDisabled}> Add </button>
+
+            <div className="recovery-container" style={recoveryCode.length === 0 ? { display: "none" } : {}}>
+                <h3> Recovery code </h3>
+                This code will help you recover the account in case of losing access to your 2FA key. <br />
+                <strong>Never share this account to anyone.</strong>
+                <div style={{ letterSpacing: "0.1rem", textTransform: "capitalize" }}> {recoveryCode} </div>
+            </div>
+
             <Link to={"/dashboard"}> &lt; Return to dashboard </Link>
         </div>
     )

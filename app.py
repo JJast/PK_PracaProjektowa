@@ -14,8 +14,6 @@ app = Flask(__name__, static_folder=None)
 
 if (os.environ.get("SECRET_KEY") is None):
     raise ValueError("Missing environment variable: SECRET_KEY")
-else:
-    print(os.environ.get("SECRET_KEY"))
 
 app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY")
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)

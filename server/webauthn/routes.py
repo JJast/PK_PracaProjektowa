@@ -1,6 +1,6 @@
-from utils import base64_to_base64url, webauthn_options_to_dict
+from utils import base64_to_base64url, webauthn_options_to_dict, generate_recovery_code
 from flask import Blueprint, request, jsonify, session
-
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from server.database import Database
 
@@ -98,10 +98,8 @@ def webauthn_register_verify():
     try:
         credential_data = request.json
 
-        print("WEBAUTHN REGISTER VERIFICATION CHALLENGE:", session['challenge'])
-        # print("RECEIVED DATA:", credential_data)
+        # print("WEBAUTHN REGISTER VERIFICATION CHALLENGE:", session['challenge'])
 
-        # expected_challenge = base64url_to_bytes(session['challenge'])
         verification = verify_registration_response(
             credential=credential_data,
             expected_challenge=session['challenge'],
@@ -113,8 +111,9 @@ def webauthn_register_verify():
         # Store the credential using base64url encoding
         credential_id = base64.urlsafe_b64encode(verification.credential_id).decode('utf-8').rstrip('=')
         public_key = base64.urlsafe_b64encode(verification.credential_public_key).decode('utf-8').rstrip('=')
-        
-        db.add_credential(session['user_id'], credential_id, public_key, credential_data["label"])
+        recovery_code = generate_recovery_code()
+        recover_code_hash = generate_password_hash(recovery_code)
+        db.add_credential(session['user_id'], credential_id, public_key, credential_data["label"], recover_code_hash)
         
         # Clean up session
         session.pop('challenge', None)
@@ -122,7 +121,8 @@ def webauthn_register_verify():
         session.pop('registering', None)
         session['authenticated'] = True
         
-        return jsonify({'status': 'ok'})
+        
+        return jsonify({'status': 'ok', 'recovery_code': recovery_code})
     
     except Exception as e:
         return jsonify({'error': str(e)}), 400
