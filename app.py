@@ -3,13 +3,21 @@ from flask_cors import CORS
 import os
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
 
 from server.webauthn.routes import webauthn_bp
 from server.admin.routes import admin_bp
 from server.database import Database
 
+load_dotenv()
 app = Flask(__name__, static_folder=None)
-app.config['SECRET_KEY'] = 'your-secret-key-here-change-this-in-production'
+
+if (os.environ.get("SECRET_KEY") is None):
+    raise ValueError("Missing environment variable: SECRET_KEY")
+else:
+    print(os.environ.get("SECRET_KEY"))
+
+app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY")
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 # Enable CORS for common dev origins so React dev server can call the API with credentials
 CORS(app, supports_credentials=True, origins=[
