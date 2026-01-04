@@ -2,7 +2,7 @@ from utils import base64_to_base64url, webauthn_options_to_dict
 from flask import Blueprint, request, jsonify, session
 
 
-from database import Database
+from server.database import Database
 
 # WebAuthn dependencies
 from webauthn import (

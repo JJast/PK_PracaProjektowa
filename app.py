@@ -6,8 +6,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from server.webauthn.routes import webauthn_bp
 from server.admin.routes import admin_bp
-
-from database import Database
+from server.database import Database
 
 app = Flask(__name__, static_folder=None)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-this-in-production'
