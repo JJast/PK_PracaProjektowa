@@ -122,6 +122,7 @@ const SignInForm: React.FC = () => {
       }
 
       if (data.webauthn) {
+        toast.success("Waiting for second authentication factor...")
         // If WebAuthn is required, get the options and start WebAuthn flow
         const optsRes = await fetch(`${API_BASE_URL}${data.next}`, {
           method: "GET",

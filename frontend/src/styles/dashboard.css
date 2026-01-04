@@ -35,6 +35,11 @@
 
 .primary-button:hover {
   background-color: #2b99a1;
+
+}
+
+.primary-button:disabled {
+  background-color: #adadad;
 }
 
 .logout-button {
