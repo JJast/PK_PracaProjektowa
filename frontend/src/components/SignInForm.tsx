@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-// import SocialIcons from "./SocialIcons";
 import "../styles/forms.css";
 import { API_BASE_URL } from "../utils/constants";
 import toast from "react-hot-toast";
@@ -149,8 +148,6 @@ const SignInForm: React.FC = () => {
     <div className="form-container sign-in">
       <form onSubmit={handleSubmit}>
         <h1>Sign In</h1>
-        {/* <SocialIcons /> */}
-        {/* <span>or use your email password</span> */}
         <input
           type="email"
           placeholder="Email"

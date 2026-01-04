@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-// import SocialIcons from "./SocialIcons";
 import "../styles/forms.css";
 import { API_BASE_URL } from "../utils/constants";
 import toast from "react-hot-toast";

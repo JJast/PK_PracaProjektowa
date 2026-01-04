@@ -10,10 +10,10 @@ export function base64urlToArrayBuffer(input: string): ArrayBuffer {
         input += '='.repeat(4 - pad);
     }
 
-    var binaryString = atob(input);
+    let binaryString = atob(input);
 
-    var bytes = new Uint8Array(binaryString.length);
-    for (var i = 0; i < binaryString.length; i++) {
+    let bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
     }
     return bytes.buffer;
@@ -21,10 +21,10 @@ export function base64urlToArrayBuffer(input: string): ArrayBuffer {
 
 // Utility function to convert ArrayBuffer to base64url
 export function arrayBufferToBase64url(buffer: ArrayBuffer) {
-    var binary = '';
-    var bytes = new Uint8Array(buffer);
-    var len = bytes.byteLength;
-    for (var i = 0; i < len; i++) {
+    let binary = '';
+    let bytes = new Uint8Array(buffer);
+    let len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
         binary += String.fromCharCode(bytes[i]);
     }
     return window.btoa(binary)
