@@ -194,3 +194,35 @@ def webauthn_authenticate_verify():
         import traceback
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 400
+
+@webauthn_bp.route('/authenticate/recover', methods=['POST'])
+def webauthn_recover():
+    if 'user_id' not in session or 'challenge' not in session:
+        return jsonify({'error': 'Session expired'}), 400
+
+    try:
+        body = request.json
+        recovery_code = body["recovery_code"]
+        
+        if not recovery_code:
+            return jsonify({'error': 'Missing recovery code'}), 400
+        
+        credentials = db.get_credentials(session['user_id'])
+
+        valid_code = False
+        for cred in credentials:
+            if check_password_hash(cred[7], recovery_code):
+                valid_code = True
+                break
+        
+        # Clean up session
+        session.pop('challenge', None)
+        session.pop('authenticating', None)
+        if valid_code:
+            session['authenticated'] = True
+            return jsonify({'status': 'ok'})
+        else:
+            return jsonify({'error': "Provided credentials are incorrect"}), 401
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400

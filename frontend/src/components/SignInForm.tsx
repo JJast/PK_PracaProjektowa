@@ -12,6 +12,9 @@ const SignInForm: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [webauthnOpts, setWebauthnOpts] = useState<any>(null);
+  const [recoveryCode, setRecoveryCode] = useState<string>("");
+  const [active2fa, setActive2fa] = useState(false);
 
   const startWebAuthnAuthentication = async (options: any) => {
     try {
@@ -102,6 +105,48 @@ const SignInForm: React.FC = () => {
     }
   };
 
+  const handleRecoverClick = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const res = await fetch(
+        `${API_BASE_URL}/webauthn/authenticate/recover`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            "recovery_code": recoveryCode
+          }),
+        }
+      );
+      if (!res.ok) {
+        throw new Error("Failed to log in using recovery code");
+      }
+
+      toast.success("Authentication successful!");
+      await checkAuth();
+      navigate("/dashboard");
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setLoading(false);
+    }
+
+  }
+
+  const handleWebauthnClick = async () => {
+    try {
+      setLoading(true);
+      toast.success("Waiting for second authentication factor...")
+      await startWebAuthnAuthentication(webauthnOpts);
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -121,7 +166,6 @@ const SignInForm: React.FC = () => {
       }
 
       if (data.webauthn) {
-        toast.success("Waiting for second authentication factor...")
         // If WebAuthn is required, get the options and start WebAuthn flow
         const optsRes = await fetch(`${API_BASE_URL}${data.next}`, {
           method: "GET",
@@ -130,8 +174,9 @@ const SignInForm: React.FC = () => {
         const opts = await optsRes.json();
 
         // Start WebAuthn authentication
-
-        await startWebAuthnAuthentication(opts);
+        setActive2fa(true);
+        setWebauthnOpts(opts);
+        // await startWebAuthnAuthentication(opts);
       } else {
         toast.success("Login successful!");
         await checkAuth();
@@ -162,12 +207,29 @@ const SignInForm: React.FC = () => {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <a href="#">Forget Your Password?</a>
+        {/* <a href="#">Forget Your Password?</a> */}
+        <br />
         <button type="submit" disabled={loading}>
           {loading ? "Signing in..." : "Sign In"}
         </button>
       </form>
-    </div>
+
+      <div className={`sign-in-2fa ${active2fa ? "active" : ""}`}>
+        <div>
+          <h2> Two-factor authentication</h2>
+          <p> Use your 2FA key to log in </p>
+          <button onClick={handleWebauthnClick} disabled={loading}> Authenticate </button>
+        </div>
+        <div className="sign-in-2fa-recovery">
+          <h2> Lost access to the key?</h2>
+          <p> Try a recovery code instead </p>
+          <form>
+            <input type="text" name="recovery" onChange={(e) => { setRecoveryCode(e.target.value) }} />
+            <button disabled={loading} onClick={handleRecoverClick}> Submit </button>
+          </form>
+        </div>
+      </div>
+    </div >
   );
 };
 
