@@ -2,6 +2,7 @@ import { useState } from "react"
 import type { AuthCredential, AuthCredentialResponse, WebauthnCredential, WebauthnRegisterOptions } from "../types/webauthn"
 import { decodeWebauthnOptions, encodeCredential } from "../utils/base64"
 import { API_BASE_URL } from "../utils/constants"
+import { getCsrfHeaders } from "../utils/requests";
 
 export default function useWebAuthn() {
     const [error, setError] = useState(null);
@@ -34,17 +35,19 @@ export default function useWebAuthn() {
     const verifyCredentials = async (
         credential: WebauthnCredential,
         action: "register" | "authenticate",
-        label: string = ""
+        label: string = "",
+        csrfToken: string | null
     ) => {
         const body: WebauthnCredential & { label?: string } = credential;
         if (action === "register") {
             body.label = label
         }
-
         const endpointUrl = `${API_BASE_URL}/webauthn/${action}/verify`;
+
+        const csrfHeaders = getCsrfHeaders(csrfToken);
         const res = await fetch(endpointUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...csrfHeaders },
             body: JSON.stringify(body),
             credentials: "include"
         });

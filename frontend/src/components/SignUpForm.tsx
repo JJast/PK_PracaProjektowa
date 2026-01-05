@@ -3,6 +3,7 @@ import "../styles/forms.css";
 import { API_BASE_URL } from "../utils/constants";
 import toast from "react-hot-toast";
 import { useForm, type SubmitHandler } from "react-hook-form"
+import { getCsrfHeaders } from "../utils/requests";
 
 type RegistrationInputs = {
   email: string
@@ -18,7 +19,10 @@ const testPassword = (value: string) => {
   return true
 }
 
-const SignUpForm: React.FC = () => {
+
+type SignUpFormProps = { csrfToken: string | null }
+
+const SignUpForm: React.FC<SignUpFormProps> = ({ csrfToken }) => {
   const [loading, setLoading] = useState(false);
 
   const {
@@ -34,9 +38,14 @@ const SignUpForm: React.FC = () => {
 
     setLoading(true);
     try {
+      const csrfHeaders = getCsrfHeaders(csrfToken);
+
       const res = await fetch(`${API_BASE_URL}/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...csrfHeaders
+        },
         credentials: "include",
         body: JSON.stringify({ username: email, password }),
       });

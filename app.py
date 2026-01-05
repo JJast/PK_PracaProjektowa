@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, session, redirect, url_for, send_from_directory
 from flask_cors import CORS
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 import os
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -15,6 +16,9 @@ app = Flask(__name__, static_folder=None)
 if (os.environ.get("SECRET_KEY") is None):
     raise ValueError("Missing environment variable: SECRET_KEY")
 
+app.register_blueprint(webauthn_bp, url_prefix="/webauthn/")
+app.register_blueprint(admin_bp, url_prefix="/admin/")
+
 app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY")
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 # Enable CORS for common dev origins so React dev server can call the API with credentials
@@ -22,10 +26,8 @@ CORS(app, supports_credentials=True, origins=[
     "http://localhost:5173",
     "http://localhost:5000",
 ])
+csrf = CSRFProtect(app)
 db = Database()
-
-app.register_blueprint(webauthn_bp, url_prefix="/webauthn/")
-app.register_blueprint(admin_bp, url_prefix="/admin/")
 
 # Frontend build directory (Vite default = dist)
 BASE_DIR = os.path.dirname(__file__)
@@ -60,6 +62,9 @@ def register():
         username = data.get('username')
         password = data.get('password')
 
+        if username is None or password is None:
+            return jsonify({'error': 'Missing credentials'}), 400
+
         if db.get_user(username):
             return jsonify({'error': 'Username already exists'}), 400
 
@@ -83,6 +88,9 @@ def login():
         data = request.get_json() or request.form
         username = data.get('username')
         password = data.get('password')
+
+        if username is None or password is None:
+            return jsonify({'error': 'Missing credentials'}), 400
 
         user = db.get_user(username)
         if user and check_password_hash(user[2], password):
@@ -134,6 +142,11 @@ def serve_static(filename):
     if os.path.exists(file_path):
         return send_from_directory(FRONTEND_BUILD_DIR, filename)
     return send_index()
+
+@app.route('/csrf-token')
+def get_csrf_token():
+    token = generate_csrf()
+    return jsonify({'csrf_token': token})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

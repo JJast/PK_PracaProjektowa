@@ -5,8 +5,11 @@ import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { base64urlToArrayBuffer } from "../utils/base64";
+import { getCsrfHeaders } from "../utils/requests";
 
-const SignInForm: React.FC = () => {
+type SignInFormProps = { csrfToken: string | null }
+
+const SignInForm: React.FC<SignInFormProps> = ({ csrfToken }) => {
   const navigate = useNavigate();
   const { checkAuth } = useAuth();
   const [email, setEmail] = useState("");
@@ -43,13 +46,17 @@ const SignInForm: React.FC = () => {
       // Convert assertion to JSON for sending to server
       const authData = assertion as any;
       const response = authData.response;
+      const csrfHeaders = getCsrfHeaders(csrfToken);
 
       const authResult = await fetch(
         `${API_BASE_URL}/webauthn/authenticate/verify`,
         {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...csrfHeaders
+          },
           body: JSON.stringify({
             id: authData.id,
             rawId: btoa(String.fromCharCode(...new Uint8Array(authData.rawId)))
@@ -109,14 +116,16 @@ const SignInForm: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
+
+      const csrfHeaders = getCsrfHeaders(csrfToken);
       const res = await fetch(
         `${API_BASE_URL}/webauthn/authenticate/recover`,
         {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...csrfHeaders },
           body: JSON.stringify({
-            "recovery_code": recoveryCode
+            "recovery_code": recoveryCode,
           }),
         }
       );
@@ -151,9 +160,14 @@ const SignInForm: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
+      const csrfHeaders = getCsrfHeaders(csrfToken);
+
       const res = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...csrfHeaders
+        },
         credentials: "include",
         body: JSON.stringify({ username: email, password }),
       });
@@ -188,6 +202,7 @@ const SignInForm: React.FC = () => {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="form-container sign-in">

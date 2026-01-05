@@ -5,12 +5,14 @@ import useWebAuthn from "../hooks/useWebauthn";
 import type { WebauthnRegisterOptions } from "../types/webauthn";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
+import { getCsrfToken } from "../utils/requests";
 
 export const AddKeyPage: React.FC = () => {
     const [keyName, setKeyName] = useState("");
     const [options, setOptions] = useState<WebauthnRegisterOptions | null>(null);
     const [recoveryCode, setRecoveryCode] = useState<string>("");
     const { getOptions, createCredentials, verifyCredentials } = useWebAuthn();
+    const [csrfToken, setCsrfToken] = useState<string | null>('');
 
     const [buttonDisabled, setButtonDisabled] = useState(false);
 
@@ -27,18 +29,19 @@ export const AddKeyPage: React.FC = () => {
             try {
                 setButtonDisabled(true);
                 const credential = await createCredentials(options);
-                const response = await verifyCredentials(credential, "register", keyName);
+                const response = await verifyCredentials(credential, "register", keyName, csrfToken);
 
                 if (response.status === "ok") {
                     toast.success("Successfully registered a key!");
                     setRecoveryCode(response["recovery_code"])
                     setKeyName("");
-                    setButtonDisabled(false);
                 } else {
                     throw new Error(`Failed to register the key!`);
                 }
             } catch (err) {
                 toast.error((err as Error).message);
+            } finally {
+                setButtonDisabled(false);
             }
 
         }
@@ -52,6 +55,19 @@ export const AddKeyPage: React.FC = () => {
                 setOptions(options);
             });
         }
+
+        (async () => {
+            try {
+                const token = await getCsrfToken();
+                if (token) {
+                    setCsrfToken(token);
+                } else {
+                    throw new Error("Server didn't return a valid form token!");
+                }
+            } catch (error) {
+                toast.error((error as Error).message)
+            }
+        })()
     }, []);
 
     return (
