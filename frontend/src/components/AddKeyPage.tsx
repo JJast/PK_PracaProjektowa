@@ -48,14 +48,6 @@ export const AddKeyPage: React.FC = () => {
     }
 
     useEffect(() => {
-        if (!hasFetchedOptions.current) {
-            hasFetchedOptions.current = true;
-            console.log("FETCHING OPTIONS...")
-            getOptions().then(options => {
-                setOptions(options);
-            });
-        }
-
         (async () => {
             try {
                 const token = await getCsrfToken();
@@ -63,6 +55,12 @@ export const AddKeyPage: React.FC = () => {
                     setCsrfToken(token);
                 } else {
                     throw new Error("Server didn't return a valid form token!");
+                }
+
+                if (!hasFetchedOptions.current) {
+                    hasFetchedOptions.current = true;
+                    const options = await getOptions();
+                    setOptions(options);
                 }
             } catch (error) {
                 toast.error((error as Error).message)

@@ -1,4 +1,4 @@
-from utils import base64_to_base64url, webauthn_options_to_dict, generate_recovery_code
+from utils import webauthn_options_to_dict, generate_recovery_code
 from flask import Blueprint, request, jsonify, session
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -76,11 +76,6 @@ def webauthn_register():
 
     # Store challenge in session as bytes
     session['challenge'] = registration_options.challenge
-    # session['challenge'] = base64.urlsafe_b64encode(
-    #     registration_options.challenge
-    # ).decode('utf-8').rstrip('=')
-
-    print("WEBAUTHN REGISTER CHALLENGE:", session['challenge'])
     session['user_handle'] = registration_options.user.id
 
     # Convert options to JSON-serializable dict
@@ -90,7 +85,7 @@ def webauthn_register():
 
 @webauthn_bp.route('/register/verify', methods=['POST'])
 def webauthn_register_verify():
-    if 'user_id' not in session or 'challenge' not in session:
+    if 'user_id' not in session or 'challenge' not in session.keys():
         return jsonify({'error': 'Session expired'}), 400
     
     print(f"Verifying registration response for user_id: {session['user_id']}")
@@ -98,7 +93,8 @@ def webauthn_register_verify():
     try:
         credential_data = request.json
 
-        # print("WEBAUTHN REGISTER VERIFICATION CHALLENGE:", session['challenge'])
+        if credential_data is None:
+            raise ValueError("Invalid body structure!")
 
         verification = verify_registration_response(
             credential=credential_data,
@@ -107,7 +103,7 @@ def webauthn_register_verify():
             expected_rp_id=RP_ID,
             require_user_verification=False,
         )
-        
+
         # Store the credential using base64url encoding
         credential_id = base64.urlsafe_b64encode(verification.credential_id).decode('utf-8').rstrip('=')
         public_key = base64.urlsafe_b64encode(verification.credential_public_key).decode('utf-8').rstrip('=')
@@ -156,11 +152,14 @@ def webauthn_authenticate():
 
 @webauthn_bp.route('/authenticate/verify', methods=['POST'])
 def webauthn_authenticate_verify():
-    if 'user_id' not in session or 'challenge' not in session:
+    if 'user_id' not in session or 'challenge' not in session.keys():
         return jsonify({'error': 'Session expired'}), 400
     
     try:
         credential_data = request.json
+        if credential_data is None:
+            raise ValueError("Invalid body structure!")
+        
         credential_id = credential_data.get('rawId') or credential_data.get('id')
         
         if not credential_id:
@@ -197,11 +196,14 @@ def webauthn_authenticate_verify():
 
 @webauthn_bp.route('/authenticate/recover', methods=['POST'])
 def webauthn_recover():
-    if 'user_id' not in session or 'challenge' not in session:
+    if 'user_id' not in session or 'challenge' not in session.keys():
         return jsonify({'error': 'Session expired'}), 400
 
     try:
         body = request.json
+        if body is None:
+            raise ValueError("Invalid body structure!")
+        
         recovery_code = body["recovery_code"]
         
         if not recovery_code:
