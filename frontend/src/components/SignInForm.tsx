@@ -132,6 +132,10 @@ const SignInForm: React.FC<SignInFormProps> = ({ csrfToken }) => {
         }
       );
       if (!res.ok) {
+        const body = await res.json()
+        if (body.error === "Provided credentials are incorrect") {
+          throw new Error("Provided recovery code is incorrect.");
+        }
         throw new Error("Failed to log in using recovery code");
       }
 

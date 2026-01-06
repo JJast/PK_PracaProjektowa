@@ -217,10 +217,10 @@ def webauthn_recover():
                 valid_code = True
                 break
         
-        # Clean up session
-        session.pop('challenge', None)
-        session.pop('authenticating', None)
         if valid_code:
+            # Clean up session
+            session.pop('challenge', None)
+            session.pop('authenticating', None)
             session['authenticated'] = True
             return jsonify({'status': 'ok'})
         else:
