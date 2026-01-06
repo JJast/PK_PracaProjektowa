@@ -52,7 +52,7 @@
   height: auto;
 }
 
-*/ .container.active .sign-in {
+.container.active .sign-in {
   transform: translateX(100%);
 }
 

@@ -27,6 +27,7 @@ const Dashboard: React.FC = () => {
   const [credentials, setCredentials] = useState<AuthCredentialResponse | null>(
     null
   );
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleLogout = async () => {
     try {
@@ -42,11 +43,12 @@ const Dashboard: React.FC = () => {
     navigate("/register-key");
   };
 
-  console.log(credentials);
   useEffect(() => {
     (async () => {
+      setIsLoading(true);
       const creds = await getCredentials();
       setCredentials(creds);
+      setIsLoading(false);
     })();
   }, []);
 
@@ -57,27 +59,27 @@ const Dashboard: React.FC = () => {
         <div className="account-container">
           <h2> Account management </h2>
           <h3> Two-factor authentication </h3>
-          {credentials === null ? null : (
-            <div className="credential-container">
-              {credentials.credentials.length > 0 ? (
-                <>
-                  <h4> Registered keys: </h4>
-                  {credentials.credentials.map((cred) => {
-                    return <CredentialItem cred={cred} />;
-                  })}
-                </>
-              ) : (
-                <div> No keys associated with this account. </div>
-              )}
-
-              <button
-                onClick={handleAddKey}
-                className="primary-button credential-btn"
-              >
-                Add 2FA key
-              </button>
-            </div>
-          )}
+          {isLoading ? <div>Loading...</div> :
+            credentials === null ? null : (
+              <div className="credential-container">
+                {credentials.credentials.length > 0 ? (
+                  <>
+                    <h4> Registered keys: </h4>
+                    {credentials.credentials.map((cred) => {
+                      return <CredentialItem cred={cred} />;
+                    })}
+                  </>
+                ) : (
+                  <div> No keys associated with this account. </div>
+                )}
+              </div>
+            )}
+          <button
+            onClick={handleAddKey}
+            className="primary-button credential-btn"
+          >
+            Add 2FA key
+          </button>
         </div>
         <button onClick={handleLogout} className="logout-button">
           Logout

@@ -123,7 +123,9 @@ const SignInForm: React.FC<SignInFormProps> = ({ csrfToken }) => {
         {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json", ...csrfHeaders },
+          headers: {
+            "Content-Type": "application/json", ...csrfHeaders
+          },
           body: JSON.stringify({
             "recovery_code": recoveryCode,
           }),

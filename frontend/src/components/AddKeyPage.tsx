@@ -12,6 +12,7 @@ export const AddKeyPage: React.FC = () => {
     const [options, setOptions] = useState<WebauthnRegisterOptions | null>(null);
     const [recoveryCode, setRecoveryCode] = useState<string>("");
     const { getOptions, createCredentials, verifyCredentials } = useWebAuthn();
+    const csrfTokenFetched = useRef(false);
     const [csrfToken, setCsrfToken] = useState<string | null>('');
 
     const [buttonDisabled, setButtonDisabled] = useState(false);
@@ -49,21 +50,24 @@ export const AddKeyPage: React.FC = () => {
 
     useEffect(() => {
         (async () => {
-            try {
-                const token = await getCsrfToken();
-                if (token) {
-                    setCsrfToken(token);
-                } else {
-                    throw new Error("Server didn't return a valid form token!");
-                }
+            if (!csrfTokenFetched.current) {
+                try {
+                    csrfTokenFetched.current = true;
+                    const token = await getCsrfToken();
+                    if (token) {
+                        setCsrfToken(token);
+                    } else {
+                        throw new Error("Server didn't return a valid form token!");
+                    }
 
-                if (!hasFetchedOptions.current) {
-                    hasFetchedOptions.current = true;
-                    const options = await getOptions();
-                    setOptions(options);
+                    if (!hasFetchedOptions.current) {
+                        hasFetchedOptions.current = true;
+                        const options = await getOptions();
+                        setOptions(options);
+                    }
+                } catch (error) {
+                    toast.error((error as Error).message)
                 }
-            } catch (error) {
-                toast.error((error as Error).message)
             }
         })()
     }, []);
