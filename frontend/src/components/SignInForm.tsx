@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import "../styles/forms.css";
 import { API_BASE_URL } from "../utils/constants";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { base64urlToArrayBuffer } from "../utils/base64";
 import { getCsrfHeaders } from "../utils/requests";
@@ -211,7 +211,7 @@ const SignInForm: React.FC<SignInFormProps> = ({ csrfToken }) => {
 
 
   return (
-    <div className="form-container sign-in">
+    <div className="form-container" style={{ width: "50%" }} >
       <form onSubmit={handleSubmit}>
         <h1>Sign In</h1>
         <input
@@ -229,6 +229,7 @@ const SignInForm: React.FC<SignInFormProps> = ({ csrfToken }) => {
           required
         />
         {/* <a href="#">Forget Your Password?</a> */}
+        <Link to="/forgot-password"> Forgot Your Password? Click here </Link>
         <br />
         <button type="submit" disabled={loading}>
           {loading ? "Signing in..." : "Sign In"}

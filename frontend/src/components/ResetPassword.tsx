@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import "../styles/forms.css";
+import "../styles/index.css";
 import { API_BASE_URL } from "../utils/constants";
 import toast from "react-hot-toast";
 import { getCsrfHeaders, getCsrfToken } from "../utils/requests";
@@ -8,7 +9,7 @@ import { getCsrfHeaders, getCsrfToken } from "../utils/requests";
 const ResetPassword = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -55,13 +56,13 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="form-container sign-in" style={{ position: 'static', margin: 'auto', opacity: 1 }}>
+    <div className="form-container container" style={{ position: 'static', margin: 'auto', opacity: 1 }}>
       <form onSubmit={handleSubmit}>
         <h1>New Password</h1>
         <p style={{ fontSize: '14px', margin: '10px 0', color: '#666' }}>
           Please enter your new password below.
         </p>
-        
+
         <input
           type="password"
           placeholder="New Password"
@@ -70,7 +71,7 @@ const ResetPassword = () => {
           required
           minLength={8}
         />
-        
+
         <input
           type="password"
           placeholder="Confirm New Password"

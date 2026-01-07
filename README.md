@@ -39,6 +39,8 @@ source .venv/bin/activate  # On Unix/macOS
 pip install -r requirements.txt
 ```
 
+3. Create a `.env` file based on the `.env.example` template
+
 ### Frontend (React)
 
 1. Install Node.js dependencies:

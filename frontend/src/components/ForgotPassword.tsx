@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "../styles/forms.css";
+import "../styles/index.css";
 import { API_BASE_URL } from "../utils/constants";
 import toast from "react-hot-toast";
 import { Link } from "react-router-dom";
@@ -43,7 +44,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="form-container sign-in" style={{ position: 'static', margin: 'auto', opacity: 1 }}>
+    <div className="container form-container" style={{ position: 'static', margin: 'auto', opacity: 1 }}>
       <form onSubmit={handleSubmit}>
         <h1>Reset Password</h1>
         <p style={{ fontSize: '14px', margin: '10px 0', color: '#666' }}>
