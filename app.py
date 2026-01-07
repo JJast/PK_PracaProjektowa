@@ -5,6 +5,8 @@ import os
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
+import secrets
+from flask_mail import Mail, Message
 
 from server.webauthn.routes import webauthn_bp
 from server.admin.routes import admin_bp
@@ -12,6 +14,15 @@ from server.database import Database
 
 load_dotenv()
 app = Flask(__name__, static_folder=None)
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.environ.get("MAIL_PASSWORD")
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get("MAIL_DEFAULT_SENDER")
+
+mail = Mail(app)
 
 if (os.environ.get("SECRET_KEY") is None):
     raise ValueError("Missing environment variable: SECRET_KEY")
@@ -147,6 +158,92 @@ def serve_static(filename):
 def get_csrf_token():
     token = generate_csrf()
     return jsonify({'csrf_token': token})
+
+@app.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        user = db.get_user(username)
+        
+        if user:
+            token = secrets.token_urlsafe(32)
+            expiry = datetime.now() + timedelta(hours=1)
+            db.set_reset_token(user[0], token, expiry)
+            
+            reset_link = f"http://localhost:5173/reset-password/{token}"
+            
+            msg = Message(
+                "Fraktal - Password Reset Instructions",
+                recipients=[username]
+            )
+            msg.html = get_reset_email_body(reset_link)
+            
+            mail.send(msg)
+            
+        return jsonify({'message': 'If an account exists with this email, you will receive a reset link shortly.'}), 200
+        
+    except Exception as e:
+        print(f"SMTP Error: {str(e)}")
+        return jsonify({'error': 'Server was unable to send the email. Please try again later.'}), 500
+
+def get_reset_email_body(reset_link):
+    return f"""
+    <html>
+    <body style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f1f5f9;">
+        <div style="max-width: 600px; margin: 40px auto; padding: 0; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <div style="background-color: #2563eb; padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 32px; letter-spacing: -0.025em; font-weight: 800;">Fraktal</h1>
+                <p style="color: #bfdbfe; margin: 5px 0 0 0; font-size: 14px;">Secure Access Management</p>
+            </div>
+            
+            <div style="padding: 40px; text-align: center;">
+                <h2 style="margin-top: 0; color: #0f172a; font-size: 24px;">Password Reset Request</h2>
+                <p style="color: #475569; font-size: 16px;">We received a request to reset the password for your <strong>Fraktal</strong> account.</p>
+                <p style="color: #475569; font-size: 16px;">Click the button below to choose a new password. If you didn't request this, you can safely ignore this email.</p>
+                
+                <div style="margin: 35px 0;">
+                    <a href="{reset_link}" 
+                       style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block; font-size: 16px;">
+                       Reset Password
+                    </a>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+                
+                <p style="font-size: 12px; color: #94a3b8; line-height: 1.4;">
+                    This link will expire in 60 minutes for security reasons.<br>
+                    If the button above doesn't work, copy and paste this URL into your browser:<br>
+                    <span style="word-break: break-all; color: #2563eb;">{reset_link}</span>
+                </p>
+            </div>
+            
+            <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+                &copy; 2026 Fraktal Authentication Services. All rights reserved.
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+@app.route('/reset-password/<token>', methods=['POST'])
+def reset_password(token):
+    data = request.get_json()
+    new_password = data.get('password')
+
+    if not new_password:
+        return jsonify({'error': 'Nowe hasło jest wymagane'}), 400
+
+    user = db.get_user_by_reset_token(token)
+    
+    if not user:
+        return jsonify({'error': 'Token jest nieprawidłowy lub wygasł'}), 400
+
+    new_hash = generate_password_hash(new_password)
+    db.update_password(user[0], new_hash)
+
+    return jsonify({'status': 'ok', 'message': 'Hasło zostało pomyślnie zmienione'})
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

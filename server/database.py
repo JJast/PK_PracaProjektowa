@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime
 
 # Database setup
 class Database:
@@ -12,6 +13,8 @@ class Database:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
+                reset_token TEXT,
+                reset_token_expiry TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -80,4 +83,28 @@ class Database:
         """Clear all data from both tables"""
         self.conn.execute('DELETE FROM credentials')
         self.conn.execute('DELETE FROM users')
+        self.conn.commit()
+
+    def set_reset_token(self, user_id, token, expiry):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ?',
+            (token, expiry, user_id)
+        )
+        self.conn.commit()
+
+    def get_user_by_reset_token(self, token):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'SELECT * FROM users WHERE reset_token = ? AND reset_token_expiry > ?',
+            (token, datetime.now())
+        )
+        return cursor.fetchone()
+
+    def update_password(self, user_id, new_password_hash):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?',
+            (new_password_hash, user_id)
+        )
         self.conn.commit()
