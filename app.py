@@ -82,6 +82,18 @@ def register():
         password_hash = generate_password_hash(password)
         user_id = db.add_user(username, password_hash)
 
+        try:
+            msg = Message(
+                "Welcome to Fraktal - Your Account is Ready",
+                recipients=[username]
+            )
+            msg.html = get_registration_email_body(username)
+            
+            mail.send(msg)
+        except Exception as e:
+            app.logger.error(f"Mail notification failed: {e}")
+            pass
+
         session['user_id'] = user_id
         session['username'] = username
         session['registering'] = True
@@ -216,6 +228,48 @@ def get_reset_email_body(reset_link):
                     If the button above doesn't work, copy and paste this URL into your browser:<br>
                     <span style="word-break: break-all; color: #2563eb;">{reset_link}</span>
                 </p>
+            </div>
+            
+            <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+                &copy; 2026 Fraktal Authentication Services. All rights reserved.
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+def get_registration_email_body(username):
+    return f"""
+    <html>
+    <body style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f1f5f9;">
+        <div style="max-width: 600px; margin: 40px auto; padding: 0; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <div style="background-color: #2563eb; padding: 30px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 32px; letter-spacing: -0.025em; font-weight: 800;">Fraktal</h1>
+                <p style="color: #bfdbfe; margin: 5px 0 0 0; font-size: 14px;">Welcome to the Future of Security</p>
+            </div>
+            
+            <div style="padding: 40px; text-align: center;">
+                <h2 style="margin-top: 0; color: #0f172a; font-size: 24px;">Welcome, {username}!</h2>
+                <p style="color: #475569; font-size: 16px;">Your account has been successfully created in the <strong>Fraktal</strong> ecosystem.</p>
+                <p style="color: #475569; font-size: 16px;">To ensure the highest level of protection, we highly recommend enabling <strong>Two-Factor Authentication (2FA)</strong> using hardware keys or biometrics.</p>
+                
+                <div style="margin: 35px 0;">
+                    <a href="http://localhost:5173/login" 
+                       style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block; font-size: 16px;">
+                       Sign In to Your Account
+                    </a>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+                
+                <div style="text-align: left; background-color: #f8fafc; padding: 20px; border-radius: 8px;">
+                    <h3 style="font-size: 14px; color: #1e293b; margin-top: 0;">Why use Fraktal?</h3>
+                    <ul style="font-size: 13px; color: #64748b; padding-left: 20px; margin-bottom: 0;">
+                        <li>FIDO2/WebAuthn standard support for phishing resistance.</li>
+                        <li>Encrypted credential storage[cite: 194].</li>
+                        <li>Seamless integration with YubiKey and Windows Hello[cite: 119].</li>
+                    </ul>
+                </div>
             </div>
             
             <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
