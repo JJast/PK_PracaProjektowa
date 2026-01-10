@@ -1,17 +1,23 @@
 import React, { useState } from "react";
-// import SocialIcons from "./SocialIcons";
 import "../styles/forms.css";
 import { API_BASE_URL } from "../utils/constants";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { base64urlToArrayBuffer } from "../utils/base64";
+import { getCsrfHeaders } from "../utils/requests";
 
-const SignInForm: React.FC = () => {
+type SignInFormProps = { csrfToken: string | null }
+
+const SignInForm: React.FC<SignInFormProps> = ({ csrfToken }) => {
   const navigate = useNavigate();
   const { checkAuth } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [webauthnOpts, setWebauthnOpts] = useState<any>(null);
+  const [recoveryCode, setRecoveryCode] = useState<string>("");
+  const [active2fa, setActive2fa] = useState(false);
 
   const startWebAuthnAuthentication = async (options: any) => {
     try {
@@ -19,32 +25,38 @@ const SignInForm: React.FC = () => {
       const assertion = await navigator.credentials.get({
         publicKey: {
           ...options.options,
-          challenge: Uint8Array.from(atob(options.options.challenge), (c) =>
-            c.charCodeAt(0)
-          ),
+          challenge: base64urlToArrayBuffer(options.options.challenge),
           allowCredentials: options.options.allowCredentials.map(
-            (cred: any) => ({
-              ...cred,
-              id: Uint8Array.from(atob(cred.id), (c) => c.charCodeAt(0)),
-            })
+            (cred: any) => {
+              let { _transports, ...credRest } = cred;
+              return {
+                ...credRest,
+                id: base64urlToArrayBuffer(cred.id),
+                transports: []
+              }
+            }
           ),
+          // rpId: "localhost"
         },
       });
 
       if (!assertion) {
         throw new Error("WebAuthn authentication failed");
       }
-
       // Convert assertion to JSON for sending to server
       const authData = assertion as any;
       const response = authData.response;
+      const csrfHeaders = getCsrfHeaders(csrfToken);
 
       const authResult = await fetch(
         `${API_BASE_URL}/webauthn/authenticate/verify`,
         {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...csrfHeaders
+          },
           body: JSON.stringify({
             id: authData.id,
             rawId: btoa(String.fromCharCode(...new Uint8Array(authData.rawId)))
@@ -74,11 +86,11 @@ const SignInForm: React.FC = () => {
                 .replace(/=/g, ""),
               userHandle: response.userHandle
                 ? btoa(
-                    String.fromCharCode(...new Uint8Array(response.userHandle))
-                  )
-                    .replace(/\+/g, "-")
-                    .replace(/\//g, "_")
-                    .replace(/=/g, "")
+                  String.fromCharCode(...new Uint8Array(response.userHandle))
+                )
+                  .replace(/\+/g, "-")
+                  .replace(/\//g, "_")
+                  .replace(/=/g, "")
                 : null,
             },
             type: authData.type,
@@ -100,13 +112,68 @@ const SignInForm: React.FC = () => {
     }
   };
 
+  const handleRecoverClick = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+
+      const csrfHeaders = getCsrfHeaders(csrfToken);
+      const res = await fetch(
+        `${API_BASE_URL}/webauthn/authenticate/recover`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json", ...csrfHeaders
+          },
+          body: JSON.stringify({
+            "recovery_code": recoveryCode,
+          }),
+        }
+      );
+      if (!res.ok) {
+        const body = await res.json()
+        if (body.error === "Provided credentials are incorrect") {
+          throw new Error("Provided recovery code is incorrect.");
+        }
+        throw new Error("Failed to log in using recovery code");
+      }
+
+      toast.success("Authentication successful!");
+      await checkAuth();
+      navigate("/dashboard");
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setLoading(false);
+    }
+
+  }
+
+  const handleWebauthnClick = async () => {
+    try {
+      setLoading(true);
+      toast.success("Waiting for second authentication factor...")
+      await startWebAuthnAuthentication(webauthnOpts);
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
+      const csrfHeaders = getCsrfHeaders(csrfToken);
+
       const res = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...csrfHeaders
+        },
         credentials: "include",
         body: JSON.stringify({ username: email, password }),
       });
@@ -127,7 +194,9 @@ const SignInForm: React.FC = () => {
         const opts = await optsRes.json();
 
         // Start WebAuthn authentication
-        await startWebAuthnAuthentication(opts);
+        setActive2fa(true);
+        setWebauthnOpts(opts);
+        // await startWebAuthnAuthentication(opts);
       } else {
         toast.success("Login successful!");
         await checkAuth();
@@ -140,12 +209,11 @@ const SignInForm: React.FC = () => {
     }
   };
 
+
   return (
-    <div className="form-container sign-in">
+    <div className="form-container" style={{ width: "50%" }} >
       <form onSubmit={handleSubmit}>
         <h1>Sign In</h1>
-        {/* <SocialIcons /> */}
-        {/* <span>or use your email password</span> */}
         <input
           type="email"
           placeholder="Email"
@@ -160,12 +228,30 @@ const SignInForm: React.FC = () => {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <a href="#">Forget Your Password?</a>
+        {/* <a href="#">Forget Your Password?</a> */}
+        <Link to="/forgot-password"> Forgot Your Password? Click here </Link>
+        <br />
         <button type="submit" disabled={loading}>
           {loading ? "Signing in..." : "Sign In"}
         </button>
       </form>
-    </div>
+
+      <div className={`sign-in-2fa ${active2fa ? "active" : ""}`}>
+        <div>
+          <h2> Two-factor authentication</h2>
+          <p> Use your 2FA key to log in </p>
+          <button onClick={handleWebauthnClick} disabled={loading}> Authenticate </button>
+        </div>
+        <div className="sign-in-2fa-recovery">
+          <h2> Lost access to the key?</h2>
+          <p> Try a recovery code instead </p>
+          <form>
+            <input type="text" name="recovery" onChange={(e) => { setRecoveryCode(e.target.value) }} />
+            <button disabled={loading} onClick={handleRecoverClick}> Submit </button>
+          </form>
+        </div>
+      </div>
+    </div >
   );
 };
 

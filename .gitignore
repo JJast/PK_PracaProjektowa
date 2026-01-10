@@ -3,3 +3,6 @@ venv
 flask_session/
 __pycache__/
 instance/
+.sonar
+.env
+.venv

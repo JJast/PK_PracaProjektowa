@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { API_BASE_URL } from "../utils/constants";
 
 interface AuthContextType {
@@ -25,10 +25,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const initialAuthDone = useRef(false);
 
   const checkAuth = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/dashboard`, {
+      const res = await fetch(`${API_BASE_URL}/credentials`, {
         credentials: "include",
       });
 
@@ -60,7 +61,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   useEffect(() => {
-    checkAuth();
+    if (!initialAuthDone.current) {
+      initialAuthDone.current = true;
+      checkAuth();
+    }
   }, []);
 
   return (

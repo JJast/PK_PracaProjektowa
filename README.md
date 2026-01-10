@@ -39,12 +39,14 @@ source .venv/bin/activate  # On Unix/macOS
 pip install -r requirements.txt
 ```
 
+3. Create a `.env` file based on the `.env.example` template
+
 ### Frontend (React)
 
 1. Install Node.js dependencies:
 
 ```bash
-# From the front-react directory
+# From the frontend directory
 npm install
 ```
 
@@ -62,7 +64,7 @@ The backend will run on http://localhost:5000
 2. Start the React development server:
 
 ```bash
-# From the front-react directory
+# From the frontend directory
 npm run dev
 ```
 
@@ -96,7 +98,7 @@ The project structure:
 App/
 ├── app.py              # Flask backend
 ├── requirements.txt    # Python dependencies
-├── front-react/        # React frontend
+├── frontend/        # React frontend
 │   ├── src/
 │   │   ├── components/  # React components
 │   │   ├── styles/     # CSS styles
